@@ -11,7 +11,7 @@ export function cleanInput(value,max=2000) {
   return String(value??'').replace(/[\u0000-\u001F\u007F]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);
 }
 function normalize(value) {
-  return cleanInput(value,MAX_POLICY).toLowerCase().replace(/[’‘]/g,"'");
+  return cleanInput(value,MAX_POLICY).toLowerCase().replace(/[ââ]/g,"'");
 }
 function matchesPhrase(text,phrase) {
   const escaped=phrase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -68,7 +68,9 @@ function evidenceDetails(policy,category,message) {
   const words=tokens(message);
   let candidates=policySentences(policy).map((sentence,index)=>{
     const text=normalize(sentence);
-    const hints=data.hints.filter(word=>matchesPhrase(text,word)).length;
+    // Delivery can describe a return/reporting deadline without being a shipping rule.
+    const subjectText=category==='shipping'?text.replace(/\b(?:of|after|from|since|on|upon)\s+(?:the\s+)?(?:delivery|dispatch)\b/g,''):text;
+    const hints=data.hints.filter(word=>matchesPhrase(subjectText,word)).length;
     const overlap=words.filter(word=>matchesPhrase(text,word)).length;
     const specific=active.filter(rule=>rule.terms.some(word=>matchesPhrase(text,word))).length;
     return {sentence,index,score:hints*3+overlap+specific*10,hints,overlap,specific};
@@ -91,14 +93,14 @@ export function generateDraft({message,policy,businessName='your store',tone='wa
   const gaps=[...new Set(details.flatMap(detail=>detail.missing.length?detail.missing:detail.evidence.length?[]:[CATEGORIES[detail.topic].label]))];
   const greetings={warm:'Hi there,',professional:'Hello,',concise:'Hello,'};
   const closings={warm:`Thanks for reaching out to ${business}.`,professional:`Thank you for contacting ${business}.`,concise:'Thank you.'};
-  const opening={shipping:'I understand you have a delivery question.',refunds:'I understand you have a question about returns or refunds.',damaged:'I’m sorry to hear there may be an issue with your item.',payment:'I understand you have a payment question.',general:'Thank you for your message.'};
-  const lines=[greetings[tone]||greetings.warm,'',topics.length>1?'Thank you for explaining the situation. We’ll review each part of your question.':opening[selected]];
+  const opening={shipping:'I understand you have a delivery question.',refunds:'I understand you have a question about returns or refunds.',damaged:'Iâm sorry to hear there may be an issue with your item.',payment:'I understand you have a payment question.',general:'Thank you for your message.'};
+  const lines=[greetings[tone]||greetings.warm,'',topics.length>1?'Thank you for explaining the situation. Weâll review each part of your question.':opening[selected]];
   if(evidence.length){
-    lines.push('','According to our stated policy:',...evidence.map(clause=>`• ${clause}`));
-    if(gaps.length)lines.push('',`We’ll need to confirm ${gaps.join(' and ').toLowerCase()} before giving you a definite answer on that part of your question.`);
+    lines.push('','According to our stated policy:',...evidence.map(clause=>`â¢ ${clause}`));
+    if(gaps.length)lines.push('',`Weâll need to confirm ${gaps.join(' and ').toLowerCase()} before giving you a definite answer on that part of your question.`);
     lines.push('',selected==='general'?'Please let us know if you need clarification on these details.':'Please share your order reference so our team can review how these terms apply to your case.');
   }else if(selected==='general'){
-    lines.push('',"I don't want to give you incorrect information. Could you clarify what you’d like help with? Our team will confirm the details before giving you a definite answer.");
+    lines.push('',"I don't want to give you incorrect information. Could you clarify what youâd like help with? Our team will confirm the details before giving you a definite answer.");
   }else{
     lines.push('',"I don't want to give you incorrect information. Our team will need to confirm the applicable policy before answering this question. Please share your order reference so we can review your case.");
   }
